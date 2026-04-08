@@ -1,0 +1,30 @@
+# Claude配置忽略
+.claude/
+
+# 跨项目符号链接忽略（避免提交关联的另一个项目）
+frontend/
+
+# 后端额外忽略（Spring Boot项目通用）
+target/
+.idea/
+*.iml
+*.log
+application-dev.yml
+application-prod.yml
+application-test.yml
+.mvn/
+mvnw
+mvnw.cmd
+*.jar
+*.war
+*.zip
+*.tar.gz
+logs/
+temp/
+.classpath
+.project
+.settings/
+bin/
+out/
+redis-data/
+mysql-data/

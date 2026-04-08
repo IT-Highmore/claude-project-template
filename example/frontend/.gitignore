@@ -1,0 +1,19 @@
+# Claude配置忽略
+.claude/
+
+# 跨项目符号链接忽略（避免提交关联的另一个项目）
+backend/
+
+# 前端额外忽略（Vue3项目通用）
+node_modules/
+dist/
+.env
+.env.*
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vscode/
+.idea/
+*.swp
+*.swo
