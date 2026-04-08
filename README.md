@@ -41,6 +41,8 @@
 ├── frontend/            # 前端Git仓库（独立）
 │   ├── .claude/         # Claude配置目录
 │   │   ├── CLAUDE.md    # 符号链接 → 全局共享层CLAUDE.md
+│   │   ├── docs/        # 前端独有文档目录
+│   │   ├── skills/      # 前端技能文档目录
 │   │   └── rules/       # 规则目录
 │   │       ├── global/  # 符号链接 → 全局共享层rules
 │   │       └── frontend.md # 前端独有规则
@@ -49,6 +51,8 @@
 ├── backend/             # 后端Git仓库（独立）
 │   ├── .claude/         # Claude配置目录
 │   │   ├── CLAUDE.md    # 符号链接 → 全局共享层CLAUDE.md
+│   │   ├── docs/        # 后端独有文档目录
+│   │   ├── skills/      # 后端技能文档目录
 │   │   └── rules/       # 规则目录
 │   │       ├── global/  # 符号链接 → 全局共享层rules
 │   │       └── backend.md # 后端独有规则
@@ -56,6 +60,8 @@
 │   └── src/             # 后端业务代码
 └── .claude-global/      # 全局共享配置（非Git仓库）
     ├── CLAUDE.md        # 前后端通用Claude指令
+    ├── docs/            # 全局通用文档目录（前后端共用，统一规范）
+    ├── skills/          # 通用技能文档目录（提升开发效率，前后端共用）
     └── rules/           # 通用规则目录
         ├── general.md   # 通用编码规范
         ├── naming.md    # 全局命名规范
