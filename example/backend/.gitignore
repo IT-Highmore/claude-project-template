@@ -1,5 +1,5 @@
 # Claude配置忽略
-.claude/
+# .claude/ 展示注释
 
 # 跨项目符号链接忽略（避免提交关联的另一个项目）
 frontend/
