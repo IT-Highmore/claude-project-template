@@ -1,399 +1,215 @@
-# 前后端双仓库联动 \+ Claude 配置复用模板
+# 前后端双仓库 + Claude 配置联动模板
 
-## 项目介绍
+这是一个面向“前端仓库 / 后端仓库分离”场景的 Claude 配置模板仓库。
 
-本模板用于解决 **前后端两个独立Git仓库** 的协同开发问题，通过符号链接（symlink）实现 Claude 配置（CLAUDE\.md、规则文件）全局复用，同时让 Claude 同时感知前后端代码，实现前端字段/接口改动后，自动同步后端对应修改，提升开发效率、减少协同成本，保持前后端规范统一。
+它解决的不是“如何把代码放进一个仓库”，而是：
 
-### 核心目标
+- 前后端继续保持各自独立 Git 仓库
+- Claude 仍然能同时理解两边代码和约束
+- 通用规则只维护一份
+- 项目级规则可以跟随各自仓库版本化
 
-- 一套 Claude 全局配置（CLAUDE\.md \+ 通用规则），前后端双仓库共用，无需重复编写
+## 这个仓库现在包含什么
 
-- 前后端独立Git仓库隔离，不合并、不污染，互不影响团队协作
+- 一份更完整的根说明文档，用来解释推荐目录、使用方式和注意事项
+- 一个 `example/` 示例目录，演示一套可直接落地的模板内容
+- 一组全局共享规则样板，放在 `example/.claude-global/`
+- 一组前端项目级规则、文档、技能样板，放在 `example/frontend/.claude/`
+- 一组后端项目级规则、文档、技能样板，放在 `example/backend/.claude/`
+- 两个初始化脚本：
+  - `example/init-unix.sh`
+  - `example/init-windows.ps1`
 
-- Claude 可同时读取前后端代码，实现前端改动自动同步后端，后端改动自动同步前端
+## 适用场景
 
-- 支持“全局通用规则 \+ 项目独有规则”分层配置，兼顾统一性和灵活性
+- 前端与后端是两个独立仓库
+- 团队希望统一 Claude 的回答风格、命名规范、接口规范和联动规则
+- 项目经常发生“前端字段改了，后端也要同步”或“后端返回结构改了，前端也要同步”的联调修改
+- 希望把“全局共享规则”和“项目独有规则”分开维护
 
-### 适用场景
+## 推荐设计
 
-- 前后端分离架构，前端、后端分别部署在独立Git仓库
+建议采用三层结构：
 
-- 需要频繁修改前后端联动字段、接口，希望减少手动同步成本
+1. 全局共享层：放在本地用户目录，不归属于任一业务仓库
+2. 前端项目层：保存前端独有规则，并链接到全局共享层和后端仓库
+3. 后端项目层：保存后端独有规则，并链接到全局共享层和前端仓库
 
-- 希望统一前后端编码规范、接口规范，通过Claude实现自动化约束
+```text
+~/work/
+├─ frontend/                 # 前端 Git 仓库
+│  ├─ .claude/
+│  │  ├─ CLAUDE.md           # 符号链接 -> ~/.claude-global/CLAUDE.md
+│  │  ├─ rules/
+│  │  │  ├─ global/          # 符号链接 -> ~/.claude-global/rules
+│  │  │  └─ frontend.md
+│  │  ├─ docs/
+│  │  └─ skills/
+│  └─ backend/               # 符号链接 -> ~/work/backend
+├─ backend/                  # 后端 Git 仓库
+│  ├─ .claude/
+│  │  ├─ CLAUDE.md           # 符号链接 -> ~/.claude-global/CLAUDE.md
+│  │  ├─ rules/
+│  │  │  ├─ global/          # 符号链接 -> ~/.claude-global/rules
+│  │  │  └─ backend.md
+│  │  ├─ docs/
+│  │  └─ skills/
+│  └─ frontend/              # 符号链接 -> ~/work/frontend
+└─ .claude-global/           # 全局共享配置目录，不放进业务仓库
+   ├─ CLAUDE.md
+   ├─ docs/
+   ├─ rules/
+   └─ skills/
+```
 
-- 团队协作中，需要保持Claude配置一致，避免重复维护规则
+## 仓库结构
 
-## 方案架构
+```text
+.
+├─ README.md
+├─ LICENSE
+└─ example/
+   ├─ README.md
+   ├─ init-unix.sh
+   ├─ init-windows.ps1
+   ├─ .claude-global/
+   │  ├─ CLAUDE.md
+   │  ├─ docs/
+   │  ├─ rules/
+   │  └─ skills/
+   ├─ frontend/
+   │  ├─ .gitignore
+   │  └─ .claude/
+   │     ├─ LINKS.md
+   │     ├─ docs/
+   │     ├─ rules/
+   │     └─ skills/
+   └─ backend/
+      ├─ .gitignore
+      └─ .claude/
+         ├─ LINKS.md
+         ├─ docs/
+         ├─ rules/
+         └─ skills/
+```
 
-采用“三层结构”设计，兼顾复用性、联动性和独立性，整体架构如下：
+## 推荐使用方式
 
-1. **全局共享层**：本地独立目录，存放前后端通用的 Claude 配置（CLAUDE\.md）和通用规则，不属于任何Git仓库，一处修改，双仓库同步生效。
+### 方式一：直接拿 `example/` 作为蓝本
 
-2. **前端项目层**：前端Git仓库，通过符号链接关联全局配置，同时链接后端代码，让Claude感知后端；额外维护前端独有规则。
+1. 复制 `example/.claude-global/` 到你的本地共享目录，如 `~/.claude-global/`
+2. 将 `example/frontend/.claude/` 中的项目级内容复制到你的前端仓库
+3. 将 `example/backend/.claude/` 中的项目级内容复制到你的后端仓库
+4. 运行初始化脚本创建符号链接和互链目录
 
-3. **后端项目层**：后端Git仓库，通过符号链接关联全局配置，同时链接前端代码，让Claude感知前端；额外维护后端独有规则。
-
-### 本地目录结构示例
+Unix / macOS / Git Bash：
 
 ```bash
-~/work/                  # 本地工作目录
-├── frontend/            # 前端Git仓库（独立）
-│   ├── .claude/         # Claude配置目录
-│   │   ├── CLAUDE.md    # 符号链接 → 全局共享层CLAUDE.md
-│   │   ├── docs/        # 前端独有文档目录
-│   │   ├── skills/      # 前端技能文档目录
-│   │   └── rules/       # 规则目录
-│   │       ├── global/  # 符号链接 → 全局共享层rules
-│   │       └── frontend.md # 前端独有规则
-│   ├── backend/         # 符号链接 → 后端项目目录（Claude可访问）
-│   └── src/             # 前端业务代码
-├── backend/             # 后端Git仓库（独立）
-│   ├── .claude/         # Claude配置目录
-│   │   ├── CLAUDE.md    # 符号链接 → 全局共享层CLAUDE.md
-│   │   ├── docs/        # 后端独有文档目录
-│   │   ├── skills/      # 后端技能文档目录
-│   │   └── rules/       # 规则目录
-│   │       ├── global/  # 符号链接 → 全局共享层rules
-│   │       └── backend.md # 后端独有规则
-│   ├── frontend/        # 符号链接 → 前端项目目录（Claude可访问）
-│   └── src/             # 后端业务代码
-└── .claude-global/      # 全局共享配置（非Git仓库）
-    ├── CLAUDE.md        # 前后端通用Claude指令
-    ├── docs/            # 全局通用文档目录（前后端共用，统一规范）
-    ├── skills/          # 通用技能文档目录（提升开发效率，前后端共用）
-    └── rules/           # 通用规则目录
-        ├── general.md   # 通用编码规范
-        ├── naming.md    # 全局命名规范
-        ├── prompt.md    # AI交互规则
-        └── security.md  # 安全规范
+bash example/init-unix.sh /path/to/frontend /path/to/backend
 ```
 
-## 快速配置步骤（通用模板）
-
-以下步骤适用于Unix/macOS/Git Bash，Windows系统可参考下方适配说明，全程复制命令即可完成配置。
-
-### 步骤1：创建全局共享配置（核心）
-
-创建本地全局共享目录，存放前后端通用的Claude配置和规则，一次创建，永久复用。
-
-```bash
-# 1. 创建全局共享目录（建议放在用户根目录，方便访问）
-mkdir -p ~/.claude-global
-cd ~/.claude-global
-
-# 2. 创建核心配置文件（模板内容见下方“配置模板”）
-touch CLAUDE.md
-mkdir rules
-touch rules/general.md rules/naming.md rules/prompt.md rules/security.md
-```
-
-### 步骤2：前端项目配置（关联全局\+链接后端）
-
-```bash
-# 1. 进入前端项目根目录（替换为你的前端项目路径）
-cd /path/to/your-frontend-project
-
-# 2. 创建Claude配置目录
-mkdir -p .claude/rules
-
-# 3. 符号链接：关联全局CLAUDE.md（实现通用配置复用）
-ln -s ~/.claude-global/CLAUDE.md .claude/CLAUDE.md
-
-# 4. 符号链接：关联全局通用规则
-ln -s ~/.claude-global/rules .claude/rules/global
-
-# 5. 符号链接：关联后端项目（让Claude能访问后端代码，实现联动）
-ln -s /path/to/your-backend-project ./backend
-
-# 6. 创建前端独有规则文件（模板内容见下方）
-touch .claude/rules/frontend.md
-```
-
-### 步骤3：后端项目配置（关联全局\+链接前端）
-
-```bash
-# 1. 进入后端项目根目录（替换为你的后端项目路径）
-cd /path/to/your-backend-project
-
-# 2. 创建Claude配置目录
-mkdir -p .claude/rules
-
-# 3. 符号链接：关联全局CLAUDE.md
-ln -s ~/.claude-global/CLAUDE.md .claude/CLAUDE.md
-
-# 4. 符号链接：关联全局通用规则
-ln -s ~/.claude-global/rules .claude/rules/global
-
-# 5. 符号链接：关联前端项目（让Claude能访问前端代码，实现联动）
-ln -s /path/to/your-frontend-project ./frontend
-
-# 6. 创建后端独有规则文件（模板内容见下方）
-touch .claude/rules/backend.md
-```
-
-### 步骤4：Git忽略配置（关键，避免污染仓库）
-
-在**前端、后端两个项目**的 \.gitignore 文件中，添加以下内容，避免符号链接和Claude配置被提交到Git仓库：
-
-```bash
-# Claude配置忽略
-.claude/
-
-# 跨项目符号链接忽略（避免提交关联的另一个项目）
-frontend/
-backend/
-```
-
-### 步骤5：验证配置生效
-
-```bash
-# 1. 进入任意项目（前端/后端），查看符号链接是否生效
-ls -la .claude/
-ls -la ./frontend  # 后端项目查看frontend链接
-ls -la ./backend   # 前端项目查看backend链接
-
-# 2. 启动Claude Code，输入指令验证
-/memory
-# 若能看到“全局CLAUDE.md + 全局规则 + 项目独有规则”，即为配置成功
-```
-
-## 核心配置模板（可直接复制使用）
-
-以下模板可直接复制到对应文件，根据你的项目实际情况（框架、语言）修改即可。
-
-### 模板1：全局共享 CLAUDE\.md（\~/\.claude\-global/CLAUDE\.md）
-
-```markdown
-# 前后端统一联动 + Claude 通用配置（全局共用）
-你正在同时处理前端和后端两个独立Git仓库的开发工作，需严格遵循以下规范，实现前后端联动同步。
-
-## 一、通用规范（前后端必须统一）
-1. 编码规范：代码清晰、可维护、符合行业最佳实践，禁止冗余代码，复杂逻辑必须添加注释。
-2. 命名规范：
-   - 变量/函数/组件：小驼峰（userInfo、getUserList）
-   - 类/接口：大驼峰（UserService、UserDTO）
-   - 常量：全大写+下划线（MAX_RETRY_COUNT、API_BASE_URL）
-   - 数据库字段/接口参数：下划线（user_name、user_id）
-3. 接口规范：
-   - 接口路径统一前缀（如 /api/v1）
-   - 状态码统一（200=成功、400=参数错误、500=服务器错误）
-   - 返回格式统一：{ "code": 200, "message": "success", "data": {} }
-4. AI交互规则：
-   - 回答简洁精准，优先提供可运行代码，不冗余赘述。
-   - 前后端任意一方修改字段、接口，需自动同步另一方对应代码。
-   - 修改时需兼顾兼容性，不破坏现有联调逻辑，必要时提示风险。
-
-## 二、项目联动规则（核心）
-1. 前端修改：字段名、接口参数、请求方式、返回解析逻辑，需自动同步后端对应接口、DTO、数据库字段。
-2. 后端修改：接口返回结构、字段类型、状态码、业务逻辑，需自动同步前端请求逻辑、接收字段、页面渲染。
-3. 枚举/常量统一：前后端共用的枚举（如用户状态、订单类型），需保持名称、值完全一致，修改时双向同步。
-
-## 三、项目路径（供Claude定位）
-- 前端项目路径：./frontend（后端项目中） / 本地实际路径（根据部署调整）
-- 后端项目路径：./backend（前端项目中） / 本地实际路径（根据部署调整）
-
-## 四、补充说明
-- 本配置为前后端通用，项目独有规则请查看对应项目的 rules 目录下的独有文件。
-- 全局规则修改后，所有关联项目自动生效，无需重新配置。
-```
-
-### 模板2：全局通用规则（rules目录下）
-
-#### rules/general\.md（通用编码规范）
-
-```markdown
-# 通用编码规范（前后端共用）
-1. 代码缩进：统一使用4个空格（禁止Tab），保持代码对齐。
-2. 注释规范：
-   - 类/接口：说明功能、作者、创建时间。
-   - 函数/方法：说明参数、返回值、功能用途，异常场景备注。
-   - 复杂逻辑：关键步骤添加注释，便于维护和协作。
-3. 代码冗余：禁止重复代码，可提取公共方法/组件，提高复用性。
-4. 安全性：
-   - 前端：避免XSS、CSRF攻击，接口请求需校验参数。
-   - 后端：避免SQL注入、权限泄露，敏感字段加密存储。
-5. 可维护性：代码命名语义化，避免晦涩缩写，便于他人理解。
-```
-
-#### rules/naming\.md（全局命名规范）
-
-```markdown
-# 全局命名规范（前后端必须严格遵循）
-## 1. 变量/函数/方法
-- 小驼峰命名：首字母小写，后续单词首字母大写（如 userInfo、getUserDetail）
-- 语义化命名：避免无意义命名（如 a、temp、data1），明确变量/方法用途。
-
-## 2. 类/接口/组件
-- 大驼峰命名：首字母大写，后续单词首字母大写（如 UserController、LoginComponent）
-- 接口命名：前缀加 I（可选，如 IUserService），明确接口用途。
-
-## 3. 常量/枚举
-- 全大写+下划线：如 MAX_PAGE_SIZE、USER_STATUS_ACTIVE
-- 枚举值：与数据库字段保持一致，避免歧义。
-
-## 4. 文件/目录
-- 前端：组件文件大驼峰（Login.vue），工具文件小驼峰（utils.js）
-- 后端：类文件大驼峰（UserService.java），配置文件小写+下划线（application_dev.yml）
-
-## 5. 数据库/接口
-- 数据库表名/字段：小写+下划线（user_info、order_id）
-- 接口路径：小写+横线（/api/v1/user/list）
-- 接口命名：动词+名词（getUser、createOrder）
-```
-
-#### rules/prompt\.md（AI交互规则）
-
-```markdown
-# AI交互规则（与Claude协作规范）
-1. 需求响应：明确用户需求，优先提供解决方案，再提供具体实现代码。
-2. 代码质量：提供的代码必须完整、可运行，无语法错误，符合全局编码规范。
-3. 联动同步：前后端任意一方修改，需主动同步另一方对应代码，无需用户额外提醒。
-4. 疑问反馈：若需求不明确、存在歧义，或修改可能影响现有功能，主动向用户确认。
-5. 优化建议：在完成需求的基础上，可提供合理的代码优化建议（如性能、可读性）。
-6. 简洁高效：回答不冗余，避免无关内容，聚焦用户需求核心。
-```
-
-#### rules/security\.md（安全规范）
-
-```markdown
-# 安全规范（前后端共用）
-1. 前端安全：
-   - 接口请求需携带token，避免未授权访问。
-   - 输入框内容校验，过滤特殊字符，防止XSS攻击。
-   - 不暴露敏感信息（如密钥、token）在前端代码中。
-
-2. 后端安全：
-   - 接口权限校验，不同角色分配不同访问权限。
-   - 数据库操作使用参数化查询，防止SQL注入。
-   - 敏感字段（如密码）加密存储，不明文保存。
-   - 接口请求频率限制，防止恶意请求。
-
-3. 通用安全：
-   - 避免使用过期依赖，及时更新依赖包，修复安全漏洞。
-   - 日志记录关键操作（如登录、权限变更），便于排查问题。
-   - 前后端数据传输使用HTTPS，确保数据安全。
-```
-
-### 模板3：前端独有规则（\.claude/rules/frontend\.md）
-
-```markdown
-# 前端项目独有规则（仅适用于当前前端项目）
-## 一、技术栈规范
-1. 框架：【替换为你的前端框架，如 React/Vue3/小程序】
-2. 样式：【替换为你的样式方案，如 Tailwind CSS/BEM/SCSS】
-3. 状态管理：【替换为你的状态管理工具，如 Pinia/Zustand/Redux】
-4. 接口请求：统一使用 axios 封装，请求拦截、响应拦截统一处理。
-5. 路由：【替换为你的路由工具，如 React Router/Vue Router】，路由命名符合全局规范。
-
-## 二、前端特有规范
-1. 组件拆分：遵循单一职责原则，组件粒度适中，可复用组件提取到公共组件库。
-2. 页面结构：统一布局（头部、侧边栏、底部），页面命名语义化。
-3. 状态管理：
-   - 全局状态：存放用户信息、全局配置等公共数据。
-   - 局部状态：存放当前页面私有数据，不滥用全局状态。
-4. 异常处理：页面报错、接口请求失败，统一提示样式，友好反馈用户。
-5. 性能优化：
-   - 组件懒加载，减少首屏加载时间。
-   - 避免不必要的重渲染，合理使用缓存。
-
-## 三、联动注意事项
-1. 前端修改接口参数、字段名后，需通知Claude同步修改后端对应接口。
-2. 后端接口返回结构变更后，需同步修改前端请求解析逻辑、页面渲染逻辑。
-3. 前后端共用枚举（如用户状态），需与后端保持完全一致，修改时双向同步。
-```
-
-### 模板4：后端独有规则（\.claude/rules/backend\.md）
-
-```markdown
-# 后端项目独有规则（仅适用于当前后端项目）
-## 一、技术栈规范
-1. 语言：【替换为你的后端语言，如 Java/Go/Node.js/Python】
-2. 框架：【替换为你的后端框架，如 Spring Boot/Gin/Express/Django】
-3. 数据库：【替换为你的数据库，如 MySQL/PostgreSQL/MongoDB】
-4. 分层架构：严格遵循 Controller → Service → Repository 分层，职责清晰。
-5. 接口文档：【替换为你的接口文档工具，如 Swagger/ApiDoc】，接口注释完整。
-
-## 二、后端特有规范
-1. 分层职责：
-   - Controller：接收前端请求，参数校验，返回响应，不处理业务逻辑。
-   - Service：处理核心业务逻辑，调用Repository操作数据库。
-   - Repository：负责数据库CRUD操作，不包含业务逻辑。
-2. 异常处理：统一全局异常拦截，返回统一格式错误信息，便于前端处理。
-3. 数据校验：接口参数校验、数据库字段校验，避免非法数据入库。
-4. 事务管理：涉及多表操作时，添加事务注解，确保数据一致性。
-5. 日志规范：关键业务操作、异常信息，统一日志记录，便于排查问题。
-
-## 三、联动注意事项
-1. 后端修改接口返回结构、字段类型后，需通知Claude同步修改前端对应逻辑。
-2. 前端字段、接口参数变更后，需同步修改后端接口接收、DTO转换、数据库字段。
-3. 前后端共用枚举、常量，需与前端保持完全一致，修改时双向同步。
-4. 接口版本迭代时，需保持向下兼容，避免影响前端现有功能。
-```
-
-## 适配说明
-
-### Windows系统适配（PowerShell/CMD，需管理员权限）
-
-Windows系统使用 \`mklink\` 命令创建符号链接，替换步骤2、3中的 \`ln \-s\` 命令，示例如下：
+Windows PowerShell：
 
 ```powershell
-# 1. 链接全局CLAUDE.md（前端/后端通用）
-mklink "C:\path\to\your-frontend-project\.claude\CLAUDE.md" "C:\Users\YourName\.claude-global\CLAUDE.md"
-
-# 2. 链接全局规则目录（前端/后端通用）
-mklink /D "C:\path\to\your-frontend-project\.claude\rules\global" "C:\Users\YourName\.claude-global\rules"
-
-# 3. 链接另一个项目（前端链接后端）
-mklink /D "C:\path\to\your-frontend-project\backend" "C:\path\to\your-backend-project"
-
-# 注：/D 表示目录符号链接，文件链接无需加 /D
+powershell -ExecutionPolicy Bypass -File .\example\init-windows.ps1 `
+  -FrontendPath C:\work\frontend `
+  -BackendPath C:\work\backend
 ```
 
-### 团队协作适配
+### 方式二：手工初始化
 
-- 团队成员可共用一套全局共享配置（可将 \.claude\-global 目录共享到团队服务器，或每人本地创建相同结构）。
+如果你不想用脚本，也可以按 `example/README.md` 中的步骤手动创建目录和符号链接。
 
-- 每人本地配置时，只需修改符号链接的路径，确保指向自己本地的前后端项目和全局配置目录。
+## 关键原则
 
-- 项目独有规则（frontend\.md/backend\.md）可提交到Git仓库，确保团队成员的项目特有规则一致。
+### 1. 全局共享内容放在本地，不放入业务仓库
 
-## 使用说明
+适合放在 `~/.claude-global/` 的内容：
 
-### 日常开发联动流程
+- 全局 `CLAUDE.md`
+- 通用编码规范
+- 通用接口规范
+- 通用安全规范
+- 团队协作规范
 
-1. 修改前端代码（如字段名、接口参数）后，在前端项目中向Claude发送指令，例：“我将前端userInfo字段改为userProfile，请同步修改后端对应接口和数据库字段”。
+### 2. 项目独有内容应放入各自仓库并纳入版本控制
 
-2. Claude会自动读取前端改动，同时通过符号链接访问后端代码，完成后端对应修改，无需手动操作。
+适合放在前端 / 后端仓库 `.claude/` 中并提交 Git 的内容：
 
-3. 修改后端代码（如返回结构、字段类型）后，在后端项目中向Claude发送指令，例：“我将后端接口返回的success字段改为isSuccess，请同步修改前端所有请求解析逻辑”。
+- 项目独有规则
+- 项目技术文档
+- 项目问题排查手册
+- 项目技能沉淀
 
-4. Claude自动同步前端修改，完成后可提示用户验证，确保前后端联动一致。
+### 3. 本地链接项应忽略，不要整目录忽略 `.claude/`
 
-### 规则维护说明
+这是现成模板里最容易踩坑的一点。
 
-- 全局规则（\.claude\-global下）：修改后所有关联项目自动生效，建议由团队负责人统一维护。
+如果直接忽略整个 `.claude/`，那么项目级规则、文档、技能也会一起被忽略，团队成员拿不到这些模板内容。更合理的做法是：
 
-- 项目独有规则（frontend\.md/backend\.md）：可根据项目需求单独修改，提交到对应Git仓库，供团队共享。
+- 提交 `.claude/rules/*.md`、`.claude/docs/`、`.claude/skills/`
+- 忽略本地符号链接本身：
+  - `.claude/CLAUDE.md`
+  - `.claude/rules/global/`
+- 忽略跨项目互链目录：
+  - 前端仓库中的 `backend/`
+  - 后端仓库中的 `frontend/`
 
-- 若需新增通用规则，直接在 \.claude\-global/rules 目录下新增文件，前后端项目会自动加载。
+`example/frontend/.gitignore` 和 `example/backend/.gitignore` 已按这个思路调整。
 
-## 常见问题排查
+## `example/` 里哪些是“真实文件”，哪些需要你本地创建
 
-1. **符号链接失效**：检查链接路径是否正确（建议使用绝对路径），若项目移动位置，需重新创建符号链接。
+由于跨平台和 Git 对符号链接的处理差异，这个模板仓库不会直接提交真正的跨仓库链接。
 
-2. **Claude无法读取另一个项目代码**：确认符号链接创建成功，且链接路径指向正确的项目目录，重启Claude重试。
+因此：
 
-3. **Git提交冲突**：确认 \.gitignore 已添加相关忽略规则，避免提交符号链接或Claude配置文件。
+- `example/.claude-global/` 里的内容都是真实模板文件
+- `example/frontend/.claude/`、`example/backend/.claude/` 里的规则 / 文档 / 技能都是真实模板文件
+- `.claude/CLAUDE.md`
+- `.claude/rules/global/`
+- 前端仓库里的 `backend/`
+- 后端仓库里的 `frontend/`
 
-4. **全局规则修改后不生效**：无需重启Claude，修改后立即生效，若未生效，可输入 /memory 指令刷新规则。
+这些“链接位”需要你在本地通过脚本或手工命令创建
 
-## 补充说明
+## 模板定制建议
 
-1\. 本模板为通用版本，可根据你的项目实际技术栈（如前端Vue/React、后端Java/Go）、业务需求，修改对应规则内容。
+你可以优先替换下面几类内容：
 
-2\. 若需要实现更自动化的联动（如Git提交后自动触发Claude同步），可结合Git Hooks扩展，具体可参考相关文档。
+- 技术栈名称：如 Vue / React、Spring Boot / Node.js / Go
+- 接口约定：统一响应结构、状态码、鉴权方式
+- 联动规则：字段变更、DTO 变更、枚举变更时 Claude 的同步要求
+- 团队协作规范：分支策略、提交规范、联调流程
+- 项目级技能库：常见报错排查、部署流程、性能优化清单
 
-3\. 建议定期维护全局规则，确保前后端规范统一，提升团队开发效率和代码质量。
+## 常见问题
 
+### 看不到 `example/.claude-global`
 
+这是隐藏目录。Windows 资源管理器和部分命令默认不显示隐藏项，请开启“显示隐藏的项目”，或使用：
+
+```powershell
+Get-ChildItem -Force example
+```
+
+### 符号链接创建失败
+
+- Windows 需要管理员权限或启用开发者模式
+- PowerShell 中建议使用 `New-Item -ItemType SymbolicLink`
+- Git Bash / macOS / Linux 可使用 `ln -s`
+
+### Claude 没有读取到另一侧仓库
+
+先检查互链是否真实存在：
+
+- 前端仓库下是否有 `backend/`
+- 后端仓库下是否有 `frontend/`
+
+再检查链接目标是否指向正确路径。
+
+## 从哪里开始看
+
+- 想先理解整体设计：看 `README.md`
+- 想直接照着搭环境：看 `example/README.md`
+- 想直接拿模板文件：看 `example/.claude-global/`、`example/frontend/.claude/`、`example/backend/.claude/`
+- 想一键落地：运行 `example/init-unix.sh` 或 `example/init-windows.ps1`
